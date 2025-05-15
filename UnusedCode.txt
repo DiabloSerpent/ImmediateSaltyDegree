@@ -1,0 +1,366 @@
+This file stores potentially useful code that I am not
+currently using.
+
+    --This code can turn an angle directly based on
+    - the move keys, but couldn't do diagonal
+    - directions very well
+    
+        # Angle is stored in radians
+        self.Angle = math.degrees(self.Angle)
+        yvar = (self.MOVE[1] - self.MOVE[0])*6
+        if self.Angle < 90 or self.Angle >= 270:
+            self.Angle -= yvar
+            self.Angle %= 360
+        if self.Angle >= 90 and self.Angle < 270:
+            self.Angle += yvar
+        xvar = (self.MOVE[3] - self.MOVE[2])*6
+        if self.Angle >= 0 and self.Angle < 180:
+            self.Angle -= xvar
+            self.Angle %= 360
+        if self.Angle >= 180 and self.Angle < 360:
+            self.Angle += xvar
+        self.Angle = math.radians(self.Angle)
+
+    --This runs pygame slower than the 60 fps clock
+
+    pygame.time.wait(250)
+
+    --This is an alternative to using PGroup.draw,
+    - and was going to be used to draw the angle
+    - indicator on top of the player using 2
+    - seperate images. 
+    - 
+    - However, I couldn't find a way to make an image 
+    - transparent, so drawing the line directly onto 
+    - the player image was easier.
+
+    PSprites = []
+
+    PSprites.append([self.image, self.rect])
+
+    for image in PSprites:
+        screech.blit(image[0], image[1])
+    del PSprites[:]
+
+
+    --This was the logic for the dashes in the player
+    - class, but it was very large and a bit of
+    - a mash of whatever worked.
+    - The new logic is much cleaner, although it needed
+    - a few more bandages.
+
+        # Various timings for dashes
+        # Start No., Cancel No., Cooldown No.
+        self.dFrames = [1, 9, 60]
+
+
+        # Dashing is double tapping the move keys in any direction,
+        # hence the hefty logic statement
+
+        # Determine if a dash has been activated, for each direction
+        for d in DIRECTIONS:
+            #  I don't like having to use utl.clamp
+            #  here, but it saves on if statements.
+            # Cap the frame count at a minute
+            self.dFCounter[d] = utl.clamp(self.dFCounter[d], 0, 3600)
+            # Entire system is essentially a giant loop
+            if self.DASH[d] == -2:  # First stage
+                # If a cooldown has been set, wait until it expires
+                if self.dFCounter[d] > 0:
+                    self.dFCounter[d] -= 1
+                # If the move button has been pressed, move to stage 2
+                elif self.MOVE[d]:
+                    self.DASH[d] = -1
+                    self.dFCounter[d] = 0
+            elif self.DASH[d] == -1:  # Second Stage
+                # Count frames
+                self.dFCounter[d] += 1
+                # Move to next stage once move key is released,
+                # but only if within the specific time window
+                if not self.MOVE[d]:
+                    clamped = utl.clamp(self.dFCounter[d],
+                                        self.dFrames[0],
+                                        self.dFrames[1])
+                    if self.dFCounter[d] == clamped:
+                        self.DASH[d] = 0
+                    else:
+                        self.DASH[d] = -2
+                    self.dFCounter[d] = 0
+            elif self.DASH[d] == 0:  # Third Stage
+                # Count frames
+                self.dFCounter[d] += 1
+                # Move to next stage once move key is pressed,
+                # but only if within the specific time window
+                if self.MOVE[d]:
+                    clamped = utl.clamp(self.dFCounter[d],
+                                        self.dFrames[0],
+                                        self.dFrames[1])
+                    if self.dFCounter[d] == clamped:
+                        self.DASH[d] = 1
+                    else:
+                        self.DASH[d] = -2
+                    self.dFCounter[d] = 0
+            elif self.DASH[d] == 1:  # Fourth Stage
+                # Once the move key has been released for the second time,
+                # cancel the dash
+                if not self.MOVE[d]:
+                    self.DASH[d] = -2
+            # Just in case
+            else:
+                self.DASH[d] = -2
+
+    --This was code used in the Button class to
+    - run arbitrary code in the main file by just
+    - setting variables (in an instance of Button)
+    - in the Levels file with strings of code.
+    - 
+    - I thought that this was a bit overkill for just
+    - switching between levels, so I put it here
+    - because it looks cool.
+    - After making the switch, this code was also slower.
+
+        (in main.py game loop)
+        if button.state:
+            exec(button.trueCode)
+        else:
+            exec(button.falseCode)
+
+
+        (in Button.__init__)
+        # Statements do nothing when created
+        self.trueCode = "pass"
+        self.falseCode = "pass"
+
+    (in Button)
+    # Properties are amazing
+    @property
+    def trueCode(self):
+        return self._tCode
+
+    # Have code compile itself when set
+    @trueCode.setter
+    def trueCode(self, newCode):
+        name = "Button: '" + self.name + "': " + "True"
+        newCode = newCode.replace("\n    ", "\n")
+        self._tCode = compile(newCode, name, 'exec')
+
+    @property
+    def falseCode(self):
+        return self._fCode
+
+    @falseCode.setter
+    def falseCode(self, newCode):
+        name = "Button: '" + self.name + "': " + "False"
+        newCode = newCode.replace("\n    ", "\n")
+        self._fCode = compile(newCode, name, 'exec')
+
+
+--This was going to be used for a few classes,
+- to signify that they weren't given all information
+- needed to work, but I never put it in because
+- that would require a few systems in place before
+- each method in a class that might use variables
+- that needed to be inititialized in a secondary
+- __init__ method.
+- 
+- I kinda wish that I didn't need secondary inits at
+- all, but due to the amount of information that needs
+- to be given to some sprites, it's either multiple
+- inits or a single multi-line init.
+
+# Used for classes that need multiple variables
+# initialized that wouldn't fit properly in
+# their __init__'s argument list.
+class UnfinishedInitialization(Exception):
+    def __init__(self, message):
+        self.message = message
+
+
+--This was the newer logic for the player dashes,
+- but I found an even better (probably) way to
+- implement them.
+
+        (at the top of Player.__init__)
+        self.DASH = {x: 0 for x in DIRECTIONS}
+        self.dFCounter = {x: 0 for x in DIRECTIONS}
+        self.DStage = {x: 0 for x in DIRECTIONS}
+        #  The frame count is reset after a minute,
+        #  so >3600 is never reached.
+        # Various timings for dash stages
+        self.dFrames = [[3, 7], [3, 7], [0, 3601]]
+
+
+        (in Player.updateKeys)
+        self.hasDash = False
+        for d in DIRECTIONS:
+            stage = self.DStage[d]
+            # key down is required to start this
+            # 0: key up, 1: key down, 2: key up
+            toNext = (stage % 2) == self.MOVE[d]
+
+            # Having an invalid stage value is interpreted
+            # as starting a cooldown.
+            if stage > 2 or stage < 0:
+                self.DStage[d] = 0
+                self.dFCounter[d] = -self.cooldown["D"]
+                self.DASH[d] = 0
+                continue
+
+            # Reset self.dfCounter[d] once it is
+            # past a minute, as there shouldn't.
+            if self.dFCounter[d] > 3600:
+                self.dFCounter[d] = 0
+            self.dFCounter[d] += 1
+            # Ignore possibility of dash if there is a cooldown
+            if self.dFCounter[d] < 0:
+                self.DASH[d] = 0
+                continue
+
+            # I may get rid of this
+            clamped = utl.clamp(
+                self.dFCounter[d],
+                *self.dFrames[stage])
+            inWindow = self.dFCounter[d] == clamped
+
+            if toNext:
+                if inWindow:
+                    self.DStage[d] += 1
+                else:
+                    self.DStage[d] = 0
+                # For the 0th stage, this basically turns
+                # off the counter until the key is down.
+                self.dFCounter[d] = 0
+
+            self.DASH[d] = int(self.DStage[d] == 2)
+            if self.DASH[d]:
+                self.hasDash = True
+
+
+--This was some logic to handle the corner cases for
+- circle collisions with walls. It didn't quite work
+- out, as shown by the block of print statements.
+- By the time I had figured out the base issue, I had
+- already come up with a simpler way to handle the corners.
+- 
+- The base issue arose from my wavering vision of how
+- the Circle class should be, but it hadn't much to do
+- with this code. If I had fixed the code in the Circle
+- class beforehand, I might have still used this code.
+- 
+- Also, I can't imagine what I would use this code for
+- now. I guess it's kinda neat to have here.
+
+        (near the top of Wall.pushCirc)
+        if self.line.collidecirc(orig, bounds="outside"):
+
+            #  I have found a way to do the corner logic
+            #  without any edge cases. Also, the corner
+            #  case code in pushRect() may not work exactly
+            #  like walls would irl, but I don't care.
+
+            # Anyhoo, first thing is to find which endpoint
+            # of the wall is closer to the circle.
+            wp1 = self.line.start
+            wp2 = self.line.end
+            oc = tuple(orig.center)  # orig.center is a property
+            # There could be a quicker way to do this,
+            # but whatever.
+            wp = wp1 if utl.pointdist_sq(oc, wp1) < utl.pointdist_sq(oc, wp2) else wp2
+
+            # Second, find the point on the wall's line
+            # closest to orig.center.
+            # turn point
+            tp = self.snapPoint(oc)
+            onLine = tuple(tp) == oc
+            #print(tp, oc, onLine)
+
+            # Third, find the angle from tp to 90 degrees,
+            # relative to orig.center.
+            tp = [(wp if onLine else tp)[x] - oc[x] for x in (0, 1)]
+            # turn angle
+            ta = utl.atan2(*tp) - (0 if onLine else math.pi/2)
+            print("utl.atan2(*tp):", utl.atan2(*tp))
+            # This is unnecessary, but nice to do.
+            # tp = [tp[x] + orig.center[x] for x in (0, 1)]
+
+            #  I was thinking of making a function to
+            #  encapsulate some of this logic, but I
+            #  didn't after all.
+            # Fourth, turn wp by ta radians around orig.center.
+            # The idea is, I don't have to make an edge
+            # case for anything if I rotate the walls to
+            # be parallel to the x-axis.
+            # wall point turned
+            wpt = [wp[x] - oc[x] for x in (0, 1)]
+            print("init wpt:", wpt)
+            # wall point radius
+            wpr = utl.pointdist_ex(wpt, (0, 0))
+            print("wpr:", wpr)
+            # wall point angle
+            wpa = 0 if onLine else utl.atan2(*wpt) - ta
+            print("wpa:", wpa)
+            wpt = (math.cos(wpa) * wpr, math.sin(wpa) * wpr)
+            #wpt = [wp[x] + oc[x] for x in (0, 1)]
+
+            yDiff = wpt[1]
+            xDiff = orig.r**2 - yDiff**2
+            if xDiff < 0:
+                xDiff = 0
+            print("tp:", tp)
+            print("ta:", ta)
+            print("orig.r:", orig.r)
+            print("wp:", wp)
+            print("wpt:", wpt)
+            #print("wpr:", wpr)
+            #print("wpa:", wpa)
+            print("moved.center:", moved.center)
+            print("oc:", oc)
+            print("yDiff:", yDiff)
+            print("cp[0]**2:", orig.r**2 - yDiff**2)
+            #math.sqrt(orig.r**2 - yDiff**2)
+            # collision point
+            cp = (xDiff, yDiff)
+            print("init cp:", cp)
+            cpr = orig.r + 3
+            # print("cpr:", cpr)
+            cpa = utl.atan2(*cp) + ta
+            print("cpa:", cpa)
+            cp = [math.cos(cpa) * cpr, math.sin(cpa) * cpr]
+            print("cp:", cp)
+            #print("new center:", [wp[x] - cp[x] for x in (0, 1)])
+            moved.center = [wp[x] - cp[x] for x in (0, 1)]
+            print("new moved.center:", moved.center)
+            print()
+
+            return moved
+
+
+--A batch of code used to test the LevelSprites
+- class and a few other things. It's basically
+- a bootleg unit test.
+
+(inside main.py)
+"""
+print("\n")
+lev.createPlayers()
+aSurf = pygame.Surface((30, 30))
+aSurf.fill(utl.red)
+#surf2 = pygame.Surface((3, 4))
+#surf2.fill(utl.white)
+#r = aSurf.blit(surf2, surf2.get_rect())
+#print(r)
+test = utl.LevelSprites()
+test.add(lev.R.player)
+test.add(spr.Wall((5, 3), (3, 5), utl.white))
+thing = utl.Sprite(test)
+thing.image = aSurf.copy()
+thing.rect = pygame.Rect(4, 5, 3, 4)
+test.add(spr.DisplayString((6, 7), 50))
+test.update()
+test.draw(aSurf)
+print("test:", test.sprites(), "\n")
+print("test.Wall:", test.getList(spr.Wall), "\n")
+print("test.Sprite:", test.getList(), "\n")
+print("Thing.groups:", thing._Sprite__g, "\n")
+running = False
+#"""

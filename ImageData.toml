@@ -1,0 +1,4 @@
+[SelectorImg]
+colorkey = [0, 0, 0]
+replace_color = [255, 0, 0]
+scale = 2
